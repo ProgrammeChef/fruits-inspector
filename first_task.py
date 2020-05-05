@@ -20,8 +20,12 @@ def run():
         # Convert image to grayscale
         gray = cv2.cvtColor(bw_image, cv2.COLOR_RGB2GRAY)
 
+        # Calculate optimal threshold as 'mode + median / 2'
+        optimal = utils.get_optimal_threshold(gray)
+
         # Binarize the image to separate foreground and background
-        threshold, binarized = cv2.threshold(gray, 25, 255, cv2.THRESH_BINARY)
+        threshold, binarized = cv2.threshold(gray, optimal, 255, cv2.THRESH_BINARY)
+        # threshold, binarized = cv2.threshold(gray, 25, 255, cv2.THRESH_BINARY)
 
         # Get fruit mask (biggest component)
         mask = utils.get_biggest_component(binarized)
@@ -29,7 +33,7 @@ def run():
         # Fill the holes
         filled = utils.fill_holes(mask)
 
-        # Get colored fruit from mask
+        # Get fruit from mask
         fruit = cv2.bitwise_and(bw_images[i], bw_images[i], mask=filled)
 
         # Apply a bilateral blur to remove noise but preserving edges
@@ -45,18 +49,18 @@ def run():
         # Perform a connected components labeling to detect components
         retval, labels, stats, centroids = cv2.connectedComponentsWithStats(closed, 4)
 
-        # Get corresponding colored image
-        display = color_images[i]
+        # Get a copy of the original image for visualisation purposes
+        display = color_image.copy()
 
         # Outline the fruit using the binary mask
         utils.outline_fruit(display, filled, 1)
 
-        # Iterate over the detected components to isolate defects
+        # Iterate over the detected components to isolate and show defects
         # (range starts from 2 to exclude outer background and the fruit itself)
         for j in range(2, retval):
             # Isolate current binarized component
             component = utils.get_component(labels, j)
-            utils.draw_defect(display, component, 2, 2.2)
+            utils.draw_defect(display, component, 2, 2.2, 0, float("inf"), 5)
 
         # Show processed image
         utils.show_image(bw_file_name, closed, 0, 0)
