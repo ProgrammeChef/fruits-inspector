@@ -1,34 +1,167 @@
 import glob
 import cv2
+import math
 import numpy as np
 from scipy import stats
+from scipy.spatial import distance as dist
+from scipy.optimize import linear_sum_assignment
 from sklearn.cluster import KMeans
-from scipy.spatial import distance
-import math
 
+# RGB shade of dark brown
 dark_brown_rgb = [71, 56, 27]
 
 
-def get_optimal_threshold(image):
+# Processing functions
+
+def median_blur(image, kernel_size, iterations):
+    for i in range(iterations):
+        image = cv2.medianBlur(image, kernel_size)
+
+    return image
+
+
+def separate_component(component, binarized, threshold):
+    points = get_convexity_points(component)
+
+    filtered_points = filter_points(binarized, points, 9, threshold)
+
+    sorted_points = sort_points_pairwise(filtered_points)
+
+    for p in sorted_points:
+        # We impose a maximum distance threshold to avoid certainly wrong connections (customisable)
+        if p[0] <= 12:
+            cv2.line(binarized, p[1], p[2], (0, 0, 0), 2)
+
+    return binarized
+
+
+def filter_points(binarized, points, radius, tolerance):
+    result = []
+
+    for p in points:
+        window = binarized[p[1] - radius:p[1] + radius, p[0] - radius:p[0] + radius]
+        white_pixels = cv2.countNonZero(window)
+        black_pixels = 2 * radius * 2 * radius - white_pixels
+
+        if white_pixels / black_pixels > tolerance:
+            result.append(p)
+
+    return result
+
+
+def sort_points_pairwise(points):
+    sorted_points = []
+
+    if len(points) > 0:
+        distance_matrix = dist.cdist(np.array(points), np.array(points))
+
+        for r in range(distance_matrix.shape[0]):
+            distance_matrix[r][r] = 9999
+
+        # We solve an assignment problem exploiting the Hungarian algorithm (also known as Kuhn-Munkres algorithm)
+        rows, cols = linear_sum_assignment(distance_matrix)
+
+        rows = rows[:len(rows) // 2]
+        cols = cols[:len(cols) // 2]
+
+        for i in range(len(rows)):
+            temp = [distance_matrix[rows[i]][cols[i]], points[rows[i]], points[cols[i]]]
+            sorted_points.append(temp)
+
+    return sorted_points
+
+
+def separate_touching_objects(binarized, timeout, threshold):
+    while True:
+        separated = 0
+        retval, labels, stats, centroids = cv2.connectedComponentsWithStats(binarized, 4)
+
+        for k in range(1, retval):
+            # Isolate current binarized component
+            component = get_component(labels, k)
+
+            binarized = separate_component(component, binarized, threshold)
+            separated += 1
+
+        if separated == 0 or timeout == 0:
+            break
+
+        timeout -= 1
+
+    return binarized
+
+
+def filter_duplicated_contours(contours, min_parallax):
+    measured = []
+
+    for c in contours:
+        if len(c) >= 5:
+            centroid, _, _ = cv2.fitEllipse(c)
+            area = cv2.contourArea(c)
+            measured.append([c, centroid, area])
+
+    filtered = []
+
+    for m in measured:
+        if is_not_duplicate(m, measured, min_parallax):
+            filtered.append(m[0])
+
+    return filtered
+
+
+def rgb_to_lab(rgb):
+    temp = np.empty((1, 1, 3), np.uint8)
+    temp[0] = rgb
+    result = cv2.cvtColor(temp, cv2.COLOR_RGB2LAB)[0][0]
+
+    return result
+
+
+# Boolean functions
+
+def is_not_duplicate(m, measured, min_parallax):
+    for c in measured:
+        if np.array_equal(m[0], c[0]):
+            continue
+
+        distance = math.sqrt((c[1][0] - m[1][0]) ** 2 + (c[1][1] - m[1][1]) ** 2)
+        if distance < min_parallax and m[2] <= c[2]:
+            return False
+
+    return True
+
+
+# Get functions
+
+
+def get_convexity_points(component):
+    contours, _ = cv2.findContours(component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contour = contours[0]
+
+    hull = cv2.convexHull(contour, returnPoints=False)
+
+    points = []
+
+    defects = cv2.convexityDefects(contour, hull)
+
+    if defects is None:
+        return points
+
+    for i in range(defects.shape[0]):
+        _, _, index, _ = defects[i, 0]
+        point = tuple(contour[index][0])
+        points.append(point)
+
+    return points
+
+
+def get_optimal_threshold(image, factor=1):
     flattened = image.flatten()
     mode = stats.mode(flattened)[0][0]
     median = int(np.median(flattened))
-    threshold = int((mode + median) / 2)
+    threshold = int((mode + factor * median) / 2)
 
     return threshold
-
-
-def auto_canny(image, sigma=0.33):
-    # Compute the median of the single channel pixel intensities
-    v = np.median(image)
-
-    # Apply automatic Canny edge detection using the computed median
-    lower = int(max(0, (1.0 - sigma) * v))
-    upper = int(min(255, (1.0 + sigma) * v))
-    edged = cv2.Canny(image, lower, upper)
-
-    # Return the edged image
-    return edged
 
 
 def fill_holes(mask):
@@ -94,75 +227,6 @@ def get_biggest_component(image):
     return biggest_component
 
 
-# Show functions
-
-def show_image(name, image, x=0, y=0):
-    cv2.imshow(name, image)
-    cv2.moveWindow(name, x, y)
-    cv2.waitKey()
-    cv2.destroyAllWindows()
-
-
-def draw_defect(image, component, thickness, scale, min_area, max_area, min_parallax):
-    contours, hierarchy = cv2.findContours(component, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-
-    # cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
-
-    if len(contours) == 0:
-        return
-
-    filtered_contours = filter_duplicated_contours(contours, min_parallax)
-
-    drawn = 0
-
-    for c in filtered_contours:
-        area = cv2.contourArea(c)
-        if min_area < area and len(c) >= 5:
-            ellipse = cv2.fitEllipse(c)
-            scaled_axes = (ellipse[1][0] * scale, ellipse[1][1] * scale)
-            if scaled_axes[0] * scaled_axes[1] * math.pi < max_area:
-                drawn += 1
-                scaled_ellipse = ellipse[0], scaled_axes, ellipse[2]
-                cv2.ellipse(image, scaled_ellipse, (0, 0, 255), thickness)
-
-    return drawn
-
-
-def is_not_duplicate(m, measured, min_parallax):
-    for c in measured:
-        if np.array_equal(m[0], c[0]):
-            continue
-
-        dist = math.sqrt((c[1][0] - m[1][0]) ** 2 + (c[1][1] - m[1][1]) ** 2)
-        if dist < min_parallax and m[2] < c[2]:
-            return False
-
-    return True
-
-
-def filter_duplicated_contours(contours, min_parallax):
-    measured = []
-
-    for c in contours:
-        if len(c) >= 5:
-            centroid, _, _ = cv2.fitEllipse(c)
-            area = cv2.contourArea(c)
-            measured.append([c, centroid, area])
-
-    filtered = []
-
-    for m in measured:
-        if is_not_duplicate(m, measured, min_parallax):
-            filtered.append(m[0])
-
-    return filtered
-
-
-def outline_fruit(image, mask, thickness):
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-    cv2.drawContours(image, contours, -1, (0, 255, 0), thickness)
-
-
 def get_dominant_colors(image, clusters):
     L, a, b = cv2.split(image)
     ab = cv2.merge((a, b))
@@ -197,7 +261,7 @@ def get_russet_index(colors):
     dark_brown_lab = rgb_to_lab(dark_brown_rgb)
 
     for c in colors:
-        d = distance.cityblock(c, dark_brown_lab)
+        d = dist.cityblock(c, dark_brown_lab)
         distances.append(d)
 
     min = [float("inf"), -1]
@@ -213,28 +277,43 @@ def get_russet_index(colors):
     return russet_index
 
 
-def rgb_to_lab(rgb):
-    temp = np.empty((1, 1, 3), np.uint8)
-    temp[0] = rgb
-    result = cv2.cvtColor(temp, cv2.COLOR_RGB2LAB)[0][0]
+# Drawing functions
 
-    return result
-
-
-def bgr_to_lab(bgr):
-    temp = np.empty((1, 1, 3), np.uint8)
-    temp[0] = bgr
-    result = cv2.cvtColor(temp, cv2.COLOR_BGR2LAB)[0][0]
-
-    return result
+def draw_fruit_outline(image, mask, thickness, color=(0, 255, 0)):
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    cv2.drawContours(image, contours, -1, color, thickness)
 
 
-def lab_to_rgb(lab):
-    temp = np.empty((1, 1, 3), np.uint8)
-    temp[0] = lab
-    result = cv2.cvtColor(temp, cv2.COLOR_LAB2RGB)[0][0]
+def draw_defect(image, component, thickness, scale, min_area, max_area, min_parallax):
+    contours, hierarchy = cv2.findContours(component, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
-    return result
+    if len(contours) == 0:
+        return
+
+    filtered_contours = filter_duplicated_contours(contours, min_parallax)
+
+    drawn = 0
+
+    for c in filtered_contours:
+        area = cv2.contourArea(c)
+        if min_area < area and len(c) >= 5:
+            ellipse = cv2.fitEllipse(c)
+            scaled_axes = (ellipse[1][0] * scale, ellipse[1][1] * scale)
+            if scaled_axes[0] * scaled_axes[1] * math.pi < max_area:
+                scaled_ellipse = ellipse[0], scaled_axes, ellipse[2]
+                cv2.ellipse(image, scaled_ellipse, (0, 0, 255), thickness)
+                drawn += 1
+
+    return drawn
+
+
+# Show functions
+
+def show_image(name, image, x=0, y=0):
+    cv2.imshow(name, image)
+    cv2.moveWindow(name, x, y)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
 
 
 def show_sample_lab(lab, name, width, height):
@@ -247,28 +326,3 @@ def show_sample_lab(lab, name, width, height):
 
     cv2.imshow(name, sample)
     cv2.moveWindow(name, 255, 0)
-
-
-def show_sample_rgb(rgb, name, width, height):
-    temp = np.empty((1, 1, 3), np.uint8)
-    temp[0] = rgb
-    bgr = cv2.cvtColor(temp, cv2.COLOR_RGB2BGR)[0][0]
-
-    sample = np.empty((width, height, 3), np.uint8)
-    sample[:, :] = bgr
-
-    show_image(name, sample)
-
-
-def show_sample_bgr(bgr, name, width, height):
-    sample = np.empty((width, height, 3), np.uint8)
-    sample[:, :] = bgr
-
-    show_image(name, sample)
-
-
-def median_blur(image, kernel_size, iterations):
-    for i in range(iterations):
-        image = cv2.medianBlur(image, kernel_size)
-
-    return image

@@ -12,5 +12,5 @@ second_task.run_clustering()
 second_task.run_samples()
 
 # Run final challenge
-# print("\n----- Running final challenge -----")
-# final_challenge.run()
+print("\n----- Running final challenge -----")
+final_challenge.run()

@@ -5,7 +5,7 @@ import numpy as np
 
 def run():
     # Read and store all images into an array
-    path = "./images/first_task"
+    path = "./images/final_challenge"
     bw_images, bw_file_names, color_images, color_file_names = utils.get_images_as_array(path)
 
     # Iterate over all images
@@ -21,11 +21,14 @@ def run():
         # Convert image to grayscale
         gray = cv2.cvtColor(bw_image, cv2.COLOR_RGB2GRAY)
 
+        # Equalise histogram to improve contrast
+        equalised = cv2.equalizeHist(gray)
+
         # Calculate optimal threshold as 'mode + factor * median / 2' (customizable)
-        optimal = utils.get_optimal_threshold(gray, 0.5)
+        optimal = utils.get_optimal_threshold(equalised, 2.3)
 
         # Binarize the image to separate foreground and background
-        threshold, binarized = cv2.threshold(gray, optimal, 255, cv2.THRESH_BINARY)
+        threshold, binarized = cv2.threshold(equalised, optimal, 255, cv2.THRESH_BINARY)
 
         # Get fruit mask (biggest component)
         mask = utils.get_biggest_component(binarized)
@@ -33,17 +36,27 @@ def run():
         # Fill the holes
         filled = utils.fill_holes(mask)
 
+        # Separate eventually touching objects by cutting out convexity defects
+        # specifying a timeout of 1 iteration (customisable)
+        separated = utils.separate_touching_objects(filled, 1, 1.35)
+
+        # Get fruit mask after separation (biggest component)
+        mask = utils.get_biggest_component(separated)
+
+        # Apply a median blur to smooth mask
+        blurred = utils.median_blur(mask, 3, 5)
+
         # Get grayscale fruit from filled mask
-        fruit = cv2.bitwise_and(bw_image, bw_image, mask=filled)
+        fruit = cv2.bitwise_and(bw_image, bw_image, mask=blurred)
 
         # Apply a bilateral blur to remove noise but preserving edges
         fruit_blurred = cv2.bilateralFilter(fruit, 11, 100, 75)
 
         # Perform a Canny edge detection
-        canny = cv2.Canny(fruit_blurred, 0, 140)
+        canny = cv2.Canny(fruit_blurred, 10, 95)
 
         # Get background mask by inverting fruit mask
-        background = 255 - filled
+        background = 255 - blurred
 
         # Dilate background mask to cut out the external edge
         kernel = np.ones((5, 5), np.uint8)
@@ -62,8 +75,8 @@ def run():
         # Get a copy of the original image for visualisation purposes
         display = color_image.copy()
 
-        # Outline the fruit using the binary mask
-        utils.draw_fruit_outline(display, filled, 1)
+        # Outline the fruit using its binary mask
+        utils.draw_fruit_outline(display, blurred, 1)
 
         # Declare a defects counter (for visualisation purposes)
         defects_counter = 0
@@ -72,11 +85,11 @@ def run():
         for j in range(1, retval):
             # Isolate current binarized component
             component = utils.get_component(labels, j)
-            defects_counter += utils.draw_defect(display, component, 2, 2.2, 20, float("inf"), 5)
+            defects_counter = utils.draw_defect(display, component, 2, 1.3, 0, float("inf"), 5)
 
         # Show processed image
         display_bw = closed.copy()
-        utils.draw_fruit_outline(display_bw, filled, 1, (255, 255, 255))
+        utils.draw_fruit_outline(display_bw, blurred, 1, (255, 255, 255))
         utils.show_image(bw_file_name, display_bw)
 
         # Print detected defects number
