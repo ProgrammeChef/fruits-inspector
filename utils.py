@@ -269,12 +269,25 @@ def get_russet_index(colors):
     return russet_index
 
 
-def get_visualisation_sample(image, labels, index):
+def get_clustering_sample(image, labels, index):
     mask = get_component(labels, index)
     mean = cv2.mean(image, mask)
     sample = [int(mean[0]), int(mean[1]), int(mean[2])]
 
     return sample
+
+
+def get_mahalanobis_sample(samples, russet_sample):
+    mean_tot = 0
+
+    for s in samples:
+        s_lab = cv2.cvtColor(s, cv2.COLOR_BGR2LAB)
+        mean_tot += np.mean(s_lab, axis=(0, 1))[0]
+
+    mean = mean_tot / len(samples)
+    result = np.array([mean, russet_sample[0][0], russet_sample[0][1]])
+
+    return result
 
 
 # Drawing functions

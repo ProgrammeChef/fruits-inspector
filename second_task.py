@@ -56,7 +56,7 @@ def run_clustering():
         russet_index = utils.get_russet_index(colors)
 
         # Show a sample of the detected color
-        russet_sample = utils.get_visualisation_sample(fruit_lab, labels, russet_index)
+        russet_sample = utils.get_clustering_sample(fruit_lab, labels, russet_index)
         utils.show_sample_lab(russet_sample, "Detected russet sample", 200, 200)
 
         # Get isolated russet on fruit as the corresponding cluster of pixels
@@ -141,14 +141,14 @@ def run_samples():
         fruit_lab = cv2.cvtColor(fruit, cv2.COLOR_BGR2LAB)
 
         # Create data structures to store total covariance and mean of samples
-        covariance_tot = np.zeros((3, 3), dtype="float64")
-        mean_tot = np.zeros((1, 3), dtype="float64")
+        covariance_tot = np.zeros((2, 2), dtype="float64")
+        mean_tot = np.zeros((1, 2), dtype="float64")
 
         # Iterate over samples to compute the reference color (i.e. mean of samples) and its total covariance
         for s in samples:
-            s_lab = cv2.cvtColor(s, cv2.COLOR_BGR2LAB)
-            s_lab_r = s_lab.reshape(s_lab.shape[0] * s_lab.shape[1], 3)
-            cov, mean = cv2.calcCovarMatrix(s_lab_r, None, cv2.COVAR_NORMAL | cv2.COVAR_ROWS | cv2.COVAR_SCALE)
+            s_ab = cv2.cvtColor(s, cv2.COLOR_BGR2LAB)[:, :, 1:3]
+            s_ab_r = s_ab.reshape(s_ab.shape[0] * s_ab.shape[1], 2)
+            cov, mean = cv2.calcCovarMatrix(s_ab_r, None, cv2.COVAR_NORMAL | cv2.COVAR_ROWS | cv2.COVAR_SCALE)
             covariance_tot = np.add(covariance_tot, cov)
             mean_tot = np.add(mean_tot, mean)
 
@@ -156,7 +156,8 @@ def run_samples():
         russet_sample = mean_tot / len(samples)
 
         # Show a sample of the detected color
-        utils.show_sample_lab(russet_sample, "Detected russet sample", 200, 200)
+        russet_sample_vis = utils.get_mahalanobis_sample(samples, russet_sample)
+        utils.show_sample_lab(russet_sample_vis, "Detected russet sample", 200, 200)
 
         # Compute the inverse of the covariance matrix (needed to measure Mahalanobis distance)
         inv_cov = cv2.invert(covariance_tot, cv2.DECOMP_SVD)[1]
@@ -169,9 +170,11 @@ def run_samples():
                 # Compute the distance only for fruit's pixels (excluding background)
                 if filled[r][c]:
                     # Get the pixel as a numpy array (needed for cdist)
-                    p = np.array(fruit_lab[r][c]).reshape(1, 3)
+                    p = np.array(fruit_lab[r][c])[1:3].reshape(1, 2)
+
                     # Compute pixel-wise Mahalanobis distance
                     dist = cdist(p, russet_sample, 'mahalanobis', VI=inv_cov)
+
                     # If distance is small, 'p' is a russet's pixel
                     if dist < 1.5:
                         # Store russet's pixel location
@@ -194,7 +197,7 @@ def run_samples():
             # Isolate current binarized component
             component = utils.get_component(labels, j)
             filled_component = utils.fill_holes(component)
-            defects_counter += utils.draw_defect(display, filled_component, 2, 1.1, 20, float("inf"), 5)
+            defects_counter += utils.draw_defect(display, filled_component, 2, 1.1, 35, float("inf"), 5)
 
         # Get colored isolated russet on fruit as the corresponding cluster of pixels (for visualisation purposes)
         russet = cv2.bitwise_and(fruit, fruit, mask=russet_component)
