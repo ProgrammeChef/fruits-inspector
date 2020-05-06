@@ -49,7 +49,7 @@ def run_clustering():
         fruit_lab = cv2.cvtColor(fruit, cv2.COLOR_BGR2LAB)
 
         # Detect dominant colors performing a K-means clustering (with K=3) on 'a' and 'b' channels of the Lab image
-        # (L is excluded to be robust to lighting's variations)
+        # (L is excluded to provide robustness to lighting's variations)
         average_labs, colors, labels = utils.get_dominant_colors(fruit_lab, 3)
 
         # Discriminate russet color among detected ones measuring distance from 'dark brown'
@@ -61,10 +61,9 @@ def run_clustering():
 
         # Get isolated russet on fruit as the corresponding cluster of pixels
         russet_component = utils.get_component(labels, russet_index)
-        russet = cv2.bitwise_and(fruit, fruit, mask=russet_component)
 
-        # Compute mask area to set an upper bound for drawing a defect
-        eroded_area = cv2.countNonZero(eroded)
+        # Perform a connected components labeling on russet mask
+        retval, labels, stats, centroids = cv2.connectedComponentsWithStats(russet_component, 4)
 
         # Get a copy of the original image for visualisation purposes
         display = color_image.copy()
@@ -72,14 +71,24 @@ def run_clustering():
         # Outline the fruit using the binary mask
         utils.draw_fruit_outline(display, filled, 1)
 
-        # Show defect on original image
-        defects = utils.draw_defect(display, russet_component, 2, 1.2, 15, 4 * eroded_area, 5)
+        # Declare a defects counter (for visualisation purposes)
+        defects_counter = 0
+
+        # Iterate over the detected components to isolate and show defects
+        for j in range(1, retval):
+            # Isolate current binarized component
+            component = utils.get_component(labels, j)
+            filled_component = utils.fill_holes(component)
+            defects_counter += utils.draw_defect(display, filled_component, 2, 1.1, 20, float("inf"), 5)
+
+        # Get colored isolated russet on fruit as the corresponding cluster of pixels (for visualisation purposes)
+        russet = cv2.bitwise_and(fruit, fruit, mask=russet_component)
 
         # Show isolated russet
         utils.show_image(color_file_name, russet)
 
         # Print detected defects number
-        print(color_file_name + ": detected " + str(defects) + " defect(s)")
+        print(color_file_name + ": detected " + str(defects_counter) + " defect(s)")
 
         # Show original image highlighting defects
         utils.show_image(color_file_name, display)
@@ -118,12 +127,6 @@ def run_samples():
         # Fill the holes
         filled = utils.fill_holes(biggest_component)
 
-        # Get a copy of the original image for visualisation purposes
-        display = color_image.copy()
-
-        # Outline the fruit using the binary mask
-        utils.draw_fruit_outline(display, filled, 1)
-
         # Erode one time to remove dark contour
         kernel = np.ones((3, 3), np.uint8)
         eroded = cv2.erode(filled, kernel, iterations=1)
@@ -150,7 +153,10 @@ def run_samples():
             mean_tot = np.add(mean_tot, mean)
 
         # Compute the mean (reference color) as the mean of the means of all the samples
-        mean_avg = mean_tot / len(samples)
+        russet_sample = mean_tot / len(samples)
+
+        # Show a sample of the detected color
+        utils.show_sample_lab(russet_sample, "Detected russet sample", 200, 200)
 
         # Compute the inverse of the covariance matrix (needed to measure Mahalanobis distance)
         inv_cov = cv2.invert(covariance_tot, cv2.DECOMP_SVD)[1]
@@ -165,26 +171,39 @@ def run_samples():
                     # Get the pixel as a numpy array (needed for cdist)
                     p = np.array(fruit_lab[r][c]).reshape(1, 3)
                     # Compute pixel-wise Mahalanobis distance
-                    dist = cdist(p, mean_avg, 'mahalanobis', VI=inv_cov)
+                    dist = cdist(p, russet_sample, 'mahalanobis', VI=inv_cov)
                     # If distance is small, 'p' is a russet's pixel
-                    if dist < 1.9:
+                    if dist < 1.5:
                         # Store russet's pixel location
                         russet_component[r][c] = 255
 
-        # Get isolated russet on fruit as the corresponding cluster of pixels
+        # Perform a connected components labeling on russet mask
+        retval, labels, stats, centroids = cv2.connectedComponentsWithStats(russet_component, 4)
+
+        # Get a copy of the original image for visualisation purposes
+        display = color_image.copy()
+
+        # Outline the fruit using the binary mask
+        utils.draw_fruit_outline(display, filled, 1)
+
+        # Declare a defects counter (for visualisation purposes)
+        defects_counter = 0
+
+        # Iterate over the detected components to isolate and show defects
+        for j in range(1, retval):
+            # Isolate current binarized component
+            component = utils.get_component(labels, j)
+            filled_component = utils.fill_holes(component)
+            defects_counter += utils.draw_defect(display, filled_component, 2, 1.1, 20, float("inf"), 5)
+
+        # Get colored isolated russet on fruit as the corresponding cluster of pixels (for visualisation purposes)
         russet = cv2.bitwise_and(fruit, fruit, mask=russet_component)
-
-        # Compute mask area to set an upper bound for drawing a defect
-        eroded_area = cv2.countNonZero(eroded)
-
-        # Show defect on original image
-        defects = utils.draw_defect(display, russet_component, 2, 1.2, 55, 4 * eroded_area, 5)
 
         # Show isolated russet
         utils.show_image(color_file_name, russet)
 
         # Print detected defects number
-        print(color_file_name + ": detected " + str(defects) + " defect(s)")
+        print(color_file_name + ": detected " + str(defects_counter) + " defect(s)")
 
         # Show original image highlighting defects
         utils.show_image(color_file_name, display)
