@@ -244,21 +244,13 @@ def get_dominant_colors(image, clusters):
     # Save labels
     labels = kmeans.labels_.reshape(image.shape[0], image.shape[1])
 
-    average_labs = []
-
-    for i in range(clusters):
-        mask = get_component(labels, i)
-        mean = cv2.mean(image, mask)
-        avg = [int(mean[0]), int(mean[1]), int(mean[2])]
-        average_labs.append(avg)
-
-    return average_labs, colors, labels
+    return colors, labels
 
 
 def get_russet_index(colors):
     distances = []
 
-    dark_brown_lab = rgb_to_lab(dark_brown_rgb)
+    dark_brown_lab = rgb_to_lab(dark_brown_rgb)[1:3]
 
     for c in colors:
         d = dist.cityblock(c, dark_brown_lab)
@@ -275,6 +267,14 @@ def get_russet_index(colors):
     russet_index = min[1]
 
     return russet_index
+
+
+def get_visualisation_sample(image, labels, index):
+    mask = get_component(labels, index)
+    mean = cv2.mean(image, mask)
+    sample = [int(mean[0]), int(mean[1]), int(mean[2])]
+
+    return sample
 
 
 # Drawing functions

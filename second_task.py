@@ -50,13 +50,13 @@ def run_clustering():
 
         # Detect dominant colors performing a K-means clustering (with K=3) on 'a' and 'b' channels of the Lab image
         # (L is excluded to provide robustness to lighting's variations)
-        average_labs, colors, labels = utils.get_dominant_colors(fruit_lab, 3)
+        colors, labels = utils.get_dominant_colors(fruit_lab, 3)
 
         # Discriminate russet color among detected ones measuring distance from 'dark brown'
-        russet_index = utils.get_russet_index(average_labs)
-        russet_sample = average_labs[russet_index]
+        russet_index = utils.get_russet_index(colors)
 
         # Show a sample of the detected color
+        russet_sample = utils.get_visualisation_sample(fruit_lab, labels, russet_index)
         utils.show_sample_lab(russet_sample, "Detected russet sample", 200, 200)
 
         # Get isolated russet on fruit as the corresponding cluster of pixels
