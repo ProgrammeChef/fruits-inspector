@@ -9,13 +9,13 @@ Computer Vision system that is able to detect and locate defects and imperfectio
 Fruits appearing in the images have been acquired through a NIR (Near Infra-Red) and a color camera with little parallax effect.
 
 ### First task
-Images show three apples with clear external defects.
+1. Images show three apples with clear external defects.
 
 ### Second task
-Images show two apples with an unwanted reddish-brown area.
+1. Images show two apples with an unwanted reddish-brown area.
 
 ### Final challenge
-Images show five kiwis, one of which with a clear external defect.
+1. Images show five kiwis, one of which with a clear external defect.
 
 ## Functional specifications
 ### First task
