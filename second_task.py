@@ -10,7 +10,7 @@ from scipy.spatial.distance import cdist
 
 __author__ = "Marco Rossini"
 __copyright__ = "Copyright 2020, Marco Rossini"
-__date__ = "2020/04"
+__date__ = "2020/05"
 __license__ = "MIT"
 __version__ = "1.0"
 
