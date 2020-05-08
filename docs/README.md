@@ -1,6 +1,6 @@
 # Fruits Inspector – Computer Vision system for the visual inspection of fruits
 <p align="center">
-  <img src="https://github.com/bobcorn/fruits-inspector/blob/master/demo/gifs/fruits.gif">
+  <img src="https://github.com/bobcorn/fruits-inspector/blob/master/demo/gifs/thumb.gif">
 </p>
 
 The system is able to detect and locate defects and imperfections on fruits.
