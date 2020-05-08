@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+"""
+Utility functions file.
+"""
+
 import glob
 import cv2
 import math
@@ -6,6 +11,14 @@ from scipy import stats
 from scipy.spatial import distance as dist
 from scipy.optimize import linear_sum_assignment
 from sklearn.cluster import KMeans
+
+__author__ = "Marco Rossini"
+__copyright__ = "Copyright 2020, Marco Rossini"
+__date__ = "2020/04"
+__license__ = "MIT"
+__version__ = "1.0"
+
+# ----------------------------------------------------------------------------------------------------------------------
 
 # RGB shade of dark brown
 dark_brown_rgb = [71, 56, 27]
