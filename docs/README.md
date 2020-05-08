@@ -41,9 +41,9 @@ Performances are calculated as the average observed FPS of 10 000 consecutive so
 * 36 FPS
 
 ### Second task
-* **Method 1**: 0.4 FPS
+* **Method 1 (K-means clustering)**: 0.4 FPS
 
-* **Method 2**: 0.7 FPS
+* **Method 2 (Mahalanobis distance)**: 0.7 FPS
 
 ### Final challenge
 * 40 FPS
