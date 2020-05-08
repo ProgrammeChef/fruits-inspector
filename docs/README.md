@@ -35,18 +35,18 @@ For each fruit appearing in each image, the vision system must provide the follo
 4. Segment the fruits and locate the defect in image “000007”. Special care should be taken to remove as “background” the dirt on the conveyor as well as the sticker in image “000006”.
 
 ## Benchmarks
-Performances are based on processor Intel Core i5 Dual-Core 2,7 GHz.
+Performances are calculated as the average observed FPS of 10 000 consecutive software executions on a Intel Core i5 Dual-Core 2,7 GHz processor.
 
 ### First task
-36 FPS (on average)
+* 36 FPS
 
 ### Second task
-**Method 1**: 0.4 FPS (on average)
+* **Method 1**: 0.4 FPS
 
-**Method 2**: 0.7 FPS (on average)
+* **Method 2**: 0.7 FPS
 
 ### Final challenge
-40 FPS (on average)
+* 40 FPS
 
 ## Full demo
 
