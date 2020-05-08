@@ -3,10 +3,10 @@
   <img src="https://github.com/bobcorn/fruits-inspector/blob/master/demo/gifs/thumb.gif">
 </p>
 
-The system is able to detect and locate defects and imperfections on fruits.
+Computer Vision system that is able to detect and locate defects and imperfections on fruits.
 
 ## Image characteristics
-Each fruit is acquired through a NIR (Near Infra-Red) and a color camera with little parallax effect.
+Fruits appearing in the images have been acquired through a NIR (Near Infra-Red) and a color camera with little parallax effect.
 
 ### First task
 Images show three apples with clear external defects.
@@ -34,7 +34,7 @@ For each fruit appearing in each image, the vision system must provide the follo
 
 1. Segment the fruits and locate the defect in image “000007”. Special care should be taken to remove as “background” the dirt on the conveyor as well as the sticker in image “000006”.
 
-## Benchmarks
+## Performances
 Performances are calculated as the average observed FPS of 10 000 consecutive software executions on a Intel Core i5 Dual-Core 2,7 GHz processor.
 
 ### First task
